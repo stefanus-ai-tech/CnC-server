@@ -6,6 +6,10 @@ const { Server } = require("socket.io");
 const path = require("path");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const dotenv = require("dotenv");
+
+// Load environment variables from .env file
+dotenv.config();
 
 // Initialize Express app
 const app = express();
@@ -15,18 +19,24 @@ const app = express();
 // Parse incoming JSON requests
 app.use(bodyParser.json());
 
+// Determine environment
+const isProduction = process.env.NODE_ENV === "production";
+
 // CORS Configuration
-// In production, replace '*' with your frontend's URL to enhance security
 app.use(
   cors({
-    origin: "https://cn-c-client.vercel.app", // Frontend URL without trailing slash
+    origin: isProduction
+      ? process.env.CLIENT_URL // Production frontend URL from environment variables
+      : process.env.CLIENT_URL_DEV || "http://localhost:3001", // Development frontend URL
     methods: ["GET", "POST"],
     credentials: true,
   })
 );
 
-// Serve static files from the React app's build directory
-app.use(express.static(path.join(__dirname, "..", "client", "build")));
+// Serve static files from the React app's build directory in production
+if (isProduction) {
+  app.use(express.static(path.join(__dirname, "..", "client", "build")));
+}
 
 // Create HTTP server
 const server = http.createServer(app);
@@ -34,7 +44,9 @@ const server = http.createServer(app);
 // Initialize Socket.IO with CORS settings
 const io = new Server(server, {
   cors: {
-    origin: "https://cn-c-client.vercel.app", // Frontend URL without trailing slash
+    origin: isProduction
+      ? process.env.CLIENT_URL // Production frontend URL from environment variables
+      : process.env.CLIENT_URL_DEV || "http://localhost:3001", // Development frontend URL
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -168,10 +180,12 @@ const disconnectUsersFromRoom = (roomId, currentSocketId) => {
   }
 };
 
-// Catch-All Handler: Serve the React app for any undefined routes
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "client", "build", "index.html"));
-});
+// Catch-All Handler: Serve the React app for any undefined routes in production
+if (isProduction) {
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "..", "client", "build", "index.html"));
+  });
+}
 
 // Start the server
 const PORT = process.env.PORT || 3000; // Railway typically assigns the PORT via environment variables
