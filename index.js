@@ -19,7 +19,7 @@ app.use(bodyParser.json());
 // In production, replace '*' with your frontend's URL to enhance security
 app.use(
   cors({
-    origin: "https://cn-c-client.vercel.app/", // Frontend URL
+    origin: "https://cn-c-client.vercel.app", // Frontend URL without trailing slash
     methods: ["GET", "POST"],
     credentials: true,
   })
@@ -34,7 +34,7 @@ const server = http.createServer(app);
 // Initialize Socket.IO with CORS settings
 const io = new Server(server, {
   cors: {
-    origin: "https://cn-c-client.vercel.app/", // Frontend URL
+    origin: "https://cn-c-client.vercel.app", // Frontend URL without trailing slash
     methods: ["GET", "POST"],
     credentials: true,
   },
