@@ -17,10 +17,18 @@ app.use(express.static(path.join(__dirname, "..", "client", "build")));
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "*", // Update this in production to restrict origin to your frontend URL
+    origin: "https://cn-c-client.vercel.app/", // Update this in production to restrict origin to your frontend URL
     methods: ["GET", "POST"],
   },
 });
+
+app.use(
+  cors({
+    origin: "https://cn-c-client.vercel.app/",
+    methods: ["GET", "POST"],
+    credentials: true,
+  })
+);
 
 // In-memory queues for matchmaking
 let confessorsQueue = [];
