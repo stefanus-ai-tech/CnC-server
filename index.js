@@ -1,12 +1,12 @@
 // server/index.js
 
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const path = require("path");
-const bodyParser = require("body-parser");
-const cors = require("cors");
-const dotenv = require("dotenv");
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const dotenv = require('dotenv');
 
 // Load environment variables from .env file
 dotenv.config();
@@ -20,22 +20,22 @@ const app = express();
 app.use(bodyParser.json());
 
 // Determine environment
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction = process.env.NODE_ENV === 'production';
 
 // CORS Configuration
 app.use(
   cors({
     origin: isProduction
       ? process.env.CLIENT_URL // Production frontend URL from environment variables
-      : process.env.CLIENT_URL_DEV || "http://localhost:3001", // Development frontend URL
-    methods: ["GET", "POST"],
+      : process.env.CLIENT_URL_DEV || 'http://localhost:3001', // Development frontend URL
+    methods: ['GET', 'POST'],
     credentials: true,
   })
 );
 
 // Serve static files from the React app's build directory in production
 if (isProduction) {
-  app.use(express.static(path.join(__dirname, "..", "client", "build")));
+  app.use(express.static(path.join(__dirname, '..', 'client', 'build')));
 }
 
 // Create HTTP server
@@ -46,8 +46,8 @@ const io = new Server(server, {
   cors: {
     origin: isProduction
       ? process.env.CLIENT_URL // Production frontend URL from environment variables
-      : process.env.CLIENT_URL_DEV || "http://localhost:3001", // Development frontend URL
-    methods: ["GET", "POST"],
+      : process.env.CLIENT_URL_DEV || 'http://localhost:3001', // Development frontend URL
+    methods: ['GET', 'POST'],
     credentials: true,
   },
 });
@@ -80,27 +80,27 @@ const attemptMatchmaking = () => {
     );
 
     // Notify both clients about the successful match
-    confessor.emit("matched", { role: "confessor", roomId });
-    listener.emit("matched", { role: "listener", roomId });
+    confessor.emit('matched', { role: 'confessor', roomId });
+    listener.emit('matched', { role: 'listener', roomId });
   }
 };
 
 // Socket.IO Connection Handling
-io.on("connection", (socket) => {
-  console.log("New client connected:", socket.id);
+io.on('connection', (socket) => {
+  console.log('New client connected:', socket.id);
 
   // Handle role selection and add the socket to the appropriate queue
-  socket.on("select_role", (role) => {
+  socket.on('select_role', (role) => {
     socket.role = role;
 
-    if (role === "confessor") {
+    if (role === 'confessor') {
       confessorsQueue.push(socket);
       console.log(`Confessor ${socket.id} added to the queue.`);
-    } else if (role === "listener") {
+    } else if (role === 'listener') {
       listenersQueue.push(socket);
       console.log(`Listener ${socket.id} added to the queue.`);
     } else {
-      socket.emit("error_message", "Invalid role selected.");
+      socket.emit('error_message', 'Invalid role selected.');
       return;
     }
 
@@ -109,47 +109,76 @@ io.on("connection", (socket) => {
   });
 
   // Handle incoming messages from clients
-  socket.on("send_message", (data) => {
+  socket.on('send_message', (data) => {
     const { message, mode } = data;
     const roomId = socket.roomId;
 
     if (!roomId) {
-      socket.emit("error_message", "You are not in a chat room.");
+      socket.emit('error_message', 'You are not in a chat room.');
       return;
     }
 
     switch (mode) {
-      case "solo":
+      case 'solo':
         // Confessor chooses to burn their confession
-        socket.emit("burn_confession"); // Trigger burn animation on confessor's side
-        socket.to(roomId).emit("confession_burned"); // Notify listener
+        socket.emit('burn_confession'); // Trigger burn animation on confessor's side
+        socket.to(roomId).emit('confession_burned'); // Notify listener
         disconnectUsersFromRoom(roomId, socket.id); // Clean up room
         break;
 
-      case "listening":
+      case 'listening':
         // Listener sends "I'm listening" message
-        socket.to(roomId).emit("receive_message", {
-          from: "Listener",
+        socket.to(roomId).emit('receive_message', {
+          from: 'Listener',
           message: "I'm listening",
         });
         break;
 
-      case "normal":
+      case 'normal':
         // Confessor sends a regular message
-        socket.to(roomId).emit("receive_message", {
-          from: "Confessor",
+        socket.to(roomId).emit('receive_message', {
+          from: 'Confessor',
           message,
         });
         break;
 
       default:
-        socket.emit("error_message", "Invalid message mode.");
+        socket.emit('error_message', 'Invalid message mode.');
+    }
+  });
+
+  // Handle the new "are_you_there" event
+  socket.on('are_you_there', () => {
+    const roomId = socket.roomId;
+
+    if (!roomId) {
+      socket.emit('error_message', 'You are not in a chat room.');
+      return;
+    }
+
+    // Get all sockets in the room
+    const room = io.sockets.adapter.rooms.get(roomId);
+    if (room) {
+      room.forEach((socketId) => {
+        if (socketId !== socket.id) {
+          const otherSocket = io.sockets.sockets.get(socketId);
+          if (otherSocket) {
+            // Emit "are_you_there" event to the Listener
+            otherSocket.emit('are_you_there');
+            console.log(
+              `Confessor ${socket.id} asked "Are you there?" to Listener ${otherSocket.id} in ${roomId}`
+            );
+          }
+        }
+      });
+    } else {
+      socket.emit('error_message', 'Chat room not found.');
     }
   });
 
   // Handle client disconnection
-  socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
 
     // Remove the socket from matchmaking queues if present
     confessorsQueue = confessorsQueue.filter((s) => s.id !== socket.id);
@@ -157,7 +186,7 @@ io.on("connection", (socket) => {
 
     // Notify the other participant if the disconnected socket was in a room
     if (socket.roomId) {
-      socket.to(socket.roomId).emit("participant_disconnected");
+      socket.to(socket.roomId).emit('participant_disconnected');
       // Optionally, you can also perform additional cleanup here
     }
   });
@@ -182,8 +211,8 @@ const disconnectUsersFromRoom = (roomId, currentSocketId) => {
 
 // Catch-All Handler: Serve the React app for any undefined routes in production
 if (isProduction) {
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "..", "client", "build", "index.html"));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'client', 'build', 'index.html'));
   });
 }
 
